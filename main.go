@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/dev6699/cube/task"
-	"github.com/docker/docker/client"
+	"github.com/dev6699/cube/worker"
 )
 
 func main() {
@@ -17,38 +17,32 @@ func main() {
 }
 
 func run() error {
-	fmt.Println("create a test container")
-
-	dc, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		return err
-	}
-
-	c := task.Config{
-		Name:  "test-container-1",
-		Image: "postgres:12-alpine",
-		Env: []string{
+	w := worker.New("worker-1")
+	t := task.NewTask(
+		"test-container-1",
+		"postgres:12-alpine",
+		[]string{
 			"POSTGRES_USER=cube",
 			"POSTGRES_PASSWORD=secret",
 		},
-	}
-
-	d := task.Docker{
-		Client: dc,
-		Config: c,
-	}
+	)
+	fmt.Println("starting task")
+	w.AddTask(*t)
 
 	ctx := context.Background()
-	result, err := d.Run(ctx)
+	result, err := w.RunTask(ctx)
 	if err != nil {
-		return err
+		return nil
 	}
 
-	fmt.Printf("Container %s is running with config %v\n", result.ContainerId, c)
+	t.ContainerID = result.ContainerId
+	fmt.Printf("task %s is running in container %s\n", t.ID, t.ContainerID)
+	time.Sleep(50 * time.Second)
 
-	time.Sleep(5 * time.Second)
-
-	result, err = d.Stop(ctx, result.ContainerId)
+	fmt.Printf("stopping task %s\n", t.ID)
+	t.State = task.Completed
+	w.AddTask(*t)
+	result, err = w.RunTask(ctx)
 	if err != nil {
 		return err
 	}

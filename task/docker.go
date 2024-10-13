@@ -34,9 +34,30 @@ type Config struct {
 	RestartPolicy string
 }
 
+func NewConfig(t *Task) *Config {
+	return &Config{
+		Name:          t.Name,
+		Image:         t.Image,
+		RestartPolicy: t.RestartPolicy,
+		Env:           t.Env,
+	}
+}
+
 type Docker struct {
 	Client *client.Client
 	Config Config
+}
+
+func NewDocker(c *Config) (*Docker, error) {
+	dc, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Docker{
+		Client: dc,
+		Config: *c,
+	}, nil
 }
 
 func (d *Docker) Run(ctx context.Context) (*DockerResult, error) {

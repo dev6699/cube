@@ -1,19 +1,19 @@
 package queue
 
-type Queue struct {
-	start  *node
-	end    *node
+type Queue[T any] struct {
+	start  *node[T]
+	end    *node[T]
 	length int
 }
 
-type node struct {
-	value interface{}
-	next  *node
+type node[T any] struct {
+	value T
+	next  *node[T]
 }
 
 // Create a new queue
-func New() *Queue {
-	return &Queue{
+func New[T any]() *Queue[T] {
+	return &Queue[T]{
 		start:  nil,
 		end:    nil,
 		length: 0,
@@ -21,9 +21,10 @@ func New() *Queue {
 }
 
 // Dequeue takes the next item off the front of the queue
-func (q *Queue) Dequeue() interface{} {
+func (q *Queue[T]) Dequeue() (T, bool) {
+	var t T
 	if q.length == 0 {
-		return nil
+		return t, false
 	}
 
 	n := q.start
@@ -35,12 +36,12 @@ func (q *Queue) Dequeue() interface{} {
 	}
 
 	q.length--
-	return n.value
+	return n.value, true
 }
 
 // Enqueue puts an item on the end of a queue
-func (q *Queue) Enqueue(value interface{}) {
-	n := &node{
+func (q *Queue[T]) Enqueue(value T) {
+	n := &node[T]{
 		value: value,
 		next:  nil,
 	}
@@ -57,12 +58,12 @@ func (q *Queue) Enqueue(value interface{}) {
 }
 
 // Len returns the number of items in the queue
-func (q *Queue) Len() int {
+func (q *Queue[T]) Len() int {
 	return q.length
 }
 
 // Peek returns the first item in the queue without removing it
-func (q *Queue) Peek() interface{} {
+func (q *Queue[T]) Peek() interface{} {
 	if q.length == 0 {
 		return nil
 	}

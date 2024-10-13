@@ -7,18 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-type State int
-
-const (
-	Pending State = iota
-	Scheduled
-	Running
-	Completed
-	Failed
-)
-
 type Task struct {
 	ID            uuid.UUID
+	ContainerID   string
+	Env           []string
 	Name          string
 	State         State
 	Image         string
@@ -29,6 +21,16 @@ type Task struct {
 	RestartPolicy string
 	StartTime     time.Time
 	FinishTime    time.Time
+}
+
+func NewTask(name string, image string, env []string) *Task {
+	return &Task{
+		ID:    uuid.New(),
+		Name:  name,
+		State: Scheduled,
+		Image: image,
+		Env:   env,
+	}
 }
 
 type TaskEvent struct {
