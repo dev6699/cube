@@ -23,16 +23,6 @@ type Task struct {
 	FinishTime    time.Time
 }
 
-func NewTask(name string, image string, env []string) *Task {
-	return &Task{
-		ID:    uuid.New(),
-		Name:  name,
-		State: Scheduled,
-		Image: image,
-		Env:   env,
-	}
-}
-
 type TaskEvent struct {
 	ID        uuid.UUID
 	State     State

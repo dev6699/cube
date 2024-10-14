@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"time"
 
-	"github.com/dev6699/cube/task"
 	"github.com/dev6699/cube/worker"
 )
 
@@ -17,36 +16,26 @@ func main() {
 }
 
 func run() error {
-	w := worker.New("worker-1")
-	t := task.NewTask(
-		"test-container-1",
-		"postgres:12-alpine",
-		[]string{
-			"POSTGRES_USER=cube",
-			"POSTGRES_PASSWORD=secret",
-		},
-	)
-	fmt.Println("starting task")
-	w.AddTask(*t)
-
 	ctx := context.Background()
-	result, err := w.RunTask(ctx)
-	if err != nil {
-		return nil
+	w := worker.New("worker-1")
+	api := worker.NewApi("127.0.0.1", 5555, w)
+
+	go runTasks(ctx, w)
+
+	return api.Start()
+}
+
+func runTasks(ctx context.Context, w *worker.Worker) {
+	for {
+		if w.Queue.Len() != 0 {
+			_, err := w.RunTask(ctx)
+			if err != nil {
+				log.Printf("Error running task: %v\n", err)
+			}
+		} else {
+			// log.Printf("No tasks to process currently.\n")
+		}
+		// log.Println("Sleeping for 10 seconds.")
+		time.Sleep(10 * time.Second)
 	}
-
-	t.ContainerID = result.ContainerId
-	fmt.Printf("task %s is running in container %s\n", t.ID, t.ContainerID)
-	time.Sleep(50 * time.Second)
-
-	fmt.Printf("stopping task %s\n", t.ID)
-	t.State = task.Completed
-	w.AddTask(*t)
-	result, err = w.RunTask(ctx)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Container %s has been stopped and removed\n", result.ContainerId)
-	return nil
 }

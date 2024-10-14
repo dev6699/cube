@@ -103,3 +103,11 @@ func (w *Worker) StopTask(ctx context.Context, t task.Task) (*task.DockerResult,
 func (w *Worker) AddTask(t task.Task) {
 	w.Queue.Enqueue(t)
 }
+
+func (w *Worker) GetTasks() []*task.Task {
+	tasks := []*task.Task{}
+	for _, t := range w.Db {
+		tasks = append(tasks, t)
+	}
+	return tasks
+}
