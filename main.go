@@ -21,6 +21,7 @@ func run() error {
 	api := worker.NewApi("127.0.0.1", 5555, w)
 
 	go runTasks(ctx, w)
+	go w.CollectStats()
 
 	return api.Start()
 }
