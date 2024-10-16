@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/dev6699/cube/queue"
@@ -26,15 +27,39 @@ func New(name string) *Worker {
 	}
 }
 
-func (w *Worker) CollectStats() {
+func (w *Worker) CollectStats(ctx context.Context) error {
 	for {
-		w.Stats = GetStats()
-		w.Stats.TaskCount = w.TaskCount
-		time.Sleep(15 * time.Second)
+		select {
+		case <-time.NewTicker(15 * time.Second).C:
+			log.Println("[working] collecting stats")
+			w.Stats = GetStats()
+			w.Stats.TaskCount = w.TaskCount
+
+		case <-ctx.Done():
+			return nil
+		}
 	}
 }
 
-func (w *Worker) RunTask(ctx context.Context) (*task.DockerResult, error) {
+func (w *Worker) RunTasks(ctx context.Context) error {
+	for {
+		select {
+		case <-time.NewTicker(10 * time.Second).C:
+			if w.Queue.Len() != 0 {
+				log.Println("[worker] running tasks")
+				_, err := w.runTask(ctx)
+				if err != nil {
+					log.Printf("Error running task: %v\n", err)
+				}
+			}
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (w *Worker) runTask(ctx context.Context) (*task.DockerResult, error) {
 	taskQueued, ok := w.Queue.Dequeue()
 	if !ok {
 		return nil, nil

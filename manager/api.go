@@ -1,4 +1,4 @@
-package worker
+package manager
 
 import (
 	"fmt"
@@ -11,22 +11,22 @@ import (
 type Api struct {
 	Address string
 	Port    int
-	Worker  *Worker
+	Manager *Manager
 	Router  *chi.Mux
 }
 
-func NewApi(address string, port int, worker *Worker) *Api {
+func NewApi(address string, port int, manager *Manager) *Api {
 	return &Api{
 		Address: address,
 		Port:    port,
-		Worker:  worker,
+		Manager: manager,
 	}
 }
 
 func (a *Api) Start() error {
 	a.initRouter()
 	addr := fmt.Sprintf("%s:%d", a.Address, a.Port)
-	log.Println("[worker] listening on", addr)
+	log.Println("[manager] listening on", addr)
 	return http.ListenAndServe(addr, a.Router)
 }
 
@@ -36,8 +36,5 @@ func (a *Api) initRouter() {
 		r.Post("/", a.StartTaskHandler)
 		r.Get("/", a.GetTasksHandler)
 		r.Delete("/{taskID}", a.StopTaskHandler)
-	})
-	a.Router.Route("/stats", func(r chi.Router) {
-		r.Get("/", a.GetStatsHandler)
 	})
 }

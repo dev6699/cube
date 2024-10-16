@@ -2,10 +2,12 @@ package manager
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/dev6699/cube/queue"
 	"github.com/dev6699/cube/task"
@@ -42,6 +44,14 @@ func New(workers []string) *Manager {
 
 func (m *Manager) AddTask(te task.TaskEvent) {
 	m.Pending.Enqueue(te)
+}
+
+func (m *Manager) GetTasks() []*task.Task {
+	tasks := []*task.Task{}
+	for _, t := range m.TaskDb {
+		tasks = append(tasks, t)
+	}
+	return tasks
 }
 
 func (m *Manager) SelectWorker() string {
@@ -106,7 +116,39 @@ func (m *Manager) SendWork() error {
 	return nil
 }
 
-func (m *Manager) UpdateTasks() error {
+func (m *Manager) ProcessTasks(ctx context.Context) error {
+	for {
+		select {
+		case <-time.NewTicker(10 * time.Second).C:
+			log.Println("[manager] processing tasks")
+			err := m.SendWork()
+			if err != nil {
+				log.Printf("Error send task to worker: %v\n", err)
+			}
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (m *Manager) UpdateTasks(ctx context.Context) error {
+	for {
+		select {
+		case <-time.NewTicker(15 * time.Second).C:
+			log.Println("[manager] updating tasks")
+			err := m.updateTasks()
+			if err != nil {
+				log.Printf("Error update task: %v\n", err)
+			}
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (m *Manager) updateTasks() error {
 	for _, worker := range m.Workers {
 		url := fmt.Sprintf("http://%s/tasks", worker)
 		resp, err := http.Get(url)

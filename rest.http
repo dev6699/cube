@@ -1,7 +1,9 @@
-GET http://127.0.0.1:5555/tasks
+@manager_url=http://127.0.0.1:5556
+
+GET {{manager_url}}/tasks
 
 ###
-POST http://127.0.0.1:5555/tasks
+POST {{manager_url}}/tasks
 Content-Type: application/json
 
 {
@@ -17,7 +19,4 @@ Content-Type: application/json
 }
 
 ###
-DELETE http://127.0.0.1:5555/tasks/266592cd-960d-4091-981c-8c25c44b1018
-
-###
-GET http://127.0.0.1:5555/stats
+DELETE {{manager_url}}/tasks/266592cd-960d-4091-981c-8c25c44b1018
