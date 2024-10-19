@@ -66,7 +66,6 @@ func (w *Worker) runTask(ctx context.Context) (*task.DockerResult, error) {
 		return nil, nil
 	}
 
-	fmt.Println("run", taskQueued.ID)
 	taskPersisted := w.Db[taskQueued.ID]
 	if taskPersisted == nil {
 		taskPersisted = &taskQueued

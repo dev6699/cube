@@ -1,5 +1,7 @@
-@manager_url=http://127.0.0.1:5556
-@worker_url=http://127.0.0.1:5555
+@manager_url=http://127.0.0.1:5555
+@worker_1_url=http://127.0.0.1:5556
+@worker_2_url=http://127.0.0.1:5557
+@worker_3_url=http://127.0.0.1:5558
 
 GET {{manager_url}}/tasks
 
@@ -23,4 +25,8 @@ Content-Type: application/json
 DELETE {{manager_url}}/tasks/266592cd-960d-4091-981c-8c25c44b1018
 
 ###
-GET {{worker_url}}/tasks
+GET {{worker_1_url}}/tasks
+###
+GET {{worker_2_url}}/tasks
+###
+GET {{worker_3_url}}/tasks

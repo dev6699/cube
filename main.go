@@ -24,16 +24,20 @@ func run() error {
 	mport, _ := strconv.Atoi(os.Getenv("CUBE_MANAGER_PORT"))
 
 	ctx := context.Background()
-	w := worker.New("worker-1")
+	workers := []string{}
+	workerCount := 3
+	for i := 0; i < workerCount; i++ {
+		w := worker.New(fmt.Sprintf("worker-%d", i+1))
+		port := wport + i
+		workers = append(workers, fmt.Sprintf("%s:%d", whost, port))
+		wapi := worker.NewApi(whost, port, w)
+		go w.RunTasks(ctx)
+		go w.CollectStats(ctx)
+		go w.UpdateTasks(ctx)
+		go wapi.Start()
+	}
 
-	wapi := worker.NewApi(whost, wport, w)
-	go w.RunTasks(ctx)
-	go w.CollectStats(ctx)
-	go w.UpdateTasks(ctx)
-	go wapi.Start()
-
-	workers := []string{fmt.Sprintf("%s:%d", whost, wport)}
-	m := manager.New(workers)
+	m := manager.New(workers, "roundrobin")
 	go m.ProcessTasks(ctx)
 	go m.UpdateTasks(ctx)
 	go m.DoHealthChecks(ctx)
