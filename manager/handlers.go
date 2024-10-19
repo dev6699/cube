@@ -3,7 +3,6 @@ package manager
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -40,7 +39,6 @@ func (a *Api) StartTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.Manager.AddTask(te)
-	log.Printf("Added task %v\n", te.Task.ID)
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(te.Task)
 }
@@ -89,7 +87,5 @@ func (a *Api) StopTaskHandler(w http.ResponseWriter, r *http.Request) {
 	taskCopy.State = task.Completed
 	te.Task = taskCopy
 	a.Manager.AddTask(te)
-
-	log.Printf("Added task event %v to stop task %v\n", taskToStop.ID, taskToStop.ContainerID)
 	w.WriteHeader(http.StatusNoContent)
 }

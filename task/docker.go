@@ -131,3 +131,7 @@ func (d *Docker) Stop(ctx context.Context, id string) (*DockerResult, error) {
 		Result:      "success",
 	}, nil
 }
+
+func (d *Docker) Inspect(ctx context.Context, containerID string) (types.ContainerJSON, error) {
+	return d.Client.ContainerInspect(ctx, containerID)
+}

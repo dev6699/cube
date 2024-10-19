@@ -29,12 +29,14 @@ func run() error {
 	wapi := worker.NewApi(whost, wport, w)
 	go w.RunTasks(ctx)
 	go w.CollectStats(ctx)
+	go w.UpdateTasks(ctx)
 	go wapi.Start()
 
 	workers := []string{fmt.Sprintf("%s:%d", whost, wport)}
 	m := manager.New(workers)
 	go m.ProcessTasks(ctx)
 	go m.UpdateTasks(ctx)
+	go m.DoHealthChecks(ctx)
 
 	mapi := manager.NewApi(mhost, mport, m)
 	return mapi.Start()

@@ -8,6 +8,7 @@ import (
 
 	"github.com/dev6699/cube/queue"
 	"github.com/dev6699/cube/task"
+	"github.com/docker/docker/api/types"
 	"github.com/google/uuid"
 )
 
@@ -31,7 +32,7 @@ func (w *Worker) CollectStats(ctx context.Context) error {
 	for {
 		select {
 		case <-time.NewTicker(15 * time.Second).C:
-			log.Println("[working] collecting stats")
+			log.Println("[worker] collecting stats")
 			w.Stats = GetStats()
 			w.Stats.TaskCount = w.TaskCount
 
@@ -49,7 +50,7 @@ func (w *Worker) RunTasks(ctx context.Context) error {
 				log.Println("[worker] running tasks")
 				_, err := w.runTask(ctx)
 				if err != nil {
-					log.Printf("Error running task: %v\n", err)
+					log.Printf("[worker] error running task: %v\n", err)
 				}
 			}
 
@@ -65,6 +66,7 @@ func (w *Worker) runTask(ctx context.Context) (*task.DockerResult, error) {
 		return nil, nil
 	}
 
+	fmt.Println("run", taskQueued.ID)
 	taskPersisted := w.Db[taskQueued.ID]
 	if taskPersisted == nil {
 		taskPersisted = &taskQueued
@@ -82,10 +84,10 @@ func (w *Worker) runTask(ctx context.Context) (*task.DockerResult, error) {
 			result, err = w.StopTask(ctx, taskQueued)
 
 		default:
-			return nil, fmt.Errorf("invalid task state")
+			return nil, fmt.Errorf("invalid task state %v", taskQueued.State)
 		}
 	} else {
-		return nil, fmt.Errorf("invalid state transition")
+		return nil, fmt.Errorf("invalid state transition from %v to %v", taskPersisted.State, taskQueued.State)
 	}
 
 	return result, err
@@ -101,6 +103,7 @@ func (w *Worker) StartTask(ctx context.Context, t task.Task) (*task.DockerResult
 
 	result, err := d.Run(ctx)
 	if err != nil {
+		log.Printf("[worker] failed to start task: %#v\n", err)
 		t.State = task.Failed
 		w.Db[t.ID] = &t
 		return result, nil
@@ -142,4 +145,48 @@ func (w *Worker) GetTasks() []*task.Task {
 		tasks = append(tasks, t)
 	}
 	return tasks
+}
+
+func (w *Worker) UpdateTasks(ctx context.Context) error {
+	for {
+		select {
+		case <-time.NewTicker(15 * time.Second).C:
+			log.Println("[worker] updating tasks")
+			w.updateTasks(ctx)
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (w *Worker) updateTasks(ctx context.Context) {
+	for id, t := range w.Db {
+		if t.State != task.Running {
+			continue
+		}
+
+		resp, err := w.InspectTask(ctx, *t)
+		if err != nil {
+			log.Printf("[worker] failed to inspect task: %#v\n", err)
+			w.Db[id].State = task.Failed
+			continue
+		}
+
+		if resp.State.Status == "exited" {
+			w.Db[id].State = task.Failed
+			continue
+		}
+
+		w.Db[id].HostPorts = resp.NetworkSettings.Ports
+	}
+}
+
+func (w *Worker) InspectTask(ctx context.Context, t task.Task) (types.ContainerJSON, error) {
+	config := task.NewConfig(&t)
+	d, err := task.NewDocker(config)
+	if err != nil {
+		return types.ContainerJSON{}, err
+	}
+	return d.Inspect(ctx, t.ContainerID)
 }
