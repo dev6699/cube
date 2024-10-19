@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dev6699/cube/queue"
+	"github.com/dev6699/cube/stats"
 	"github.com/dev6699/cube/task"
 	"github.com/docker/docker/api/types"
 	"github.com/google/uuid"
@@ -17,7 +18,7 @@ type Worker struct {
 	Queue     queue.Queue[task.Task]
 	Db        map[uuid.UUID]*task.Task
 	TaskCount int
-	Stats     *Stats
+	Stats     *stats.Stats
 }
 
 func New(name string) *Worker {
@@ -33,7 +34,7 @@ func (w *Worker) CollectStats(ctx context.Context) error {
 		select {
 		case <-time.NewTicker(15 * time.Second).C:
 			log.Println("[worker] collecting stats")
-			w.Stats = GetStats()
+			w.Stats = stats.GetStats()
 			w.Stats.TaskCount = w.TaskCount
 
 		case <-ctx.Done():
