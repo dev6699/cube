@@ -66,8 +66,8 @@ func (a *Api) StopTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskToStop, ok := a.Manager.TaskDb[tID]
-	if !ok {
+	taskToStop, err := a.Manager.TaskDb.Get(tID.String())
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		e := ErrResponse{
 			HTTPStatusCode: http.StatusNotFound,

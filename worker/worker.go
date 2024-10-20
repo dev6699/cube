@@ -2,30 +2,38 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/dev6699/cube/queue"
 	"github.com/dev6699/cube/stats"
+	"github.com/dev6699/cube/store"
 	"github.com/dev6699/cube/task"
 	"github.com/docker/docker/api/types"
-	"github.com/google/uuid"
 )
 
 type Worker struct {
 	Name      string
 	Queue     queue.Queue[task.Task]
-	Db        map[uuid.UUID]*task.Task
+	Db        store.Store[*task.Task]
 	TaskCount int
 	Stats     *stats.Stats
 }
 
-func New(name string) *Worker {
+func New(name string, taskDbType string) *Worker {
+
+	var s store.Store[*task.Task]
+	switch taskDbType {
+	case "memory":
+		s = store.NewInMemoryStore[*task.Task]()
+	}
+
 	return &Worker{
 		Name:  name,
 		Queue: queue.Queue[task.Task]{},
-		Db:    make(map[uuid.UUID]*task.Task),
+		Db:    s,
 	}
 }
 
@@ -67,14 +75,21 @@ func (w *Worker) runTask(ctx context.Context) (*task.DockerResult, error) {
 		return nil, nil
 	}
 
-	taskPersisted := w.Db[taskQueued.ID]
-	if taskPersisted == nil {
-		taskPersisted = &taskQueued
-		w.Db[taskQueued.ID] = &taskQueued
+	key := taskQueued.ID.String()
+	taskPersisted, err := w.Db.Get(key)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			taskPersisted = &taskQueued
+			err = w.Db.Put(key, &taskQueued)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	var result *task.DockerResult
-	var err error
 	if task.ValidStateTransiton(taskPersisted.State, taskQueued.State) {
 		switch taskQueued.State {
 		case task.Scheduled:
@@ -105,13 +120,16 @@ func (w *Worker) StartTask(ctx context.Context, t task.Task) (*task.DockerResult
 	if err != nil {
 		log.Printf("[worker] failed to start task: %#v\n", err)
 		t.State = task.Failed
-		w.Db[t.ID] = &t
+		w.Db.Put(t.ID.String(), &t)
 		return result, nil
 	}
 
 	t.ContainerID = result.ContainerId
 	t.State = task.Running
-	w.Db[t.ID] = &t
+	err = w.Db.Put(t.ID.String(), &t)
+	if err != nil {
+		return nil, err
+	}
 
 	return result, nil
 }
@@ -130,7 +148,10 @@ func (w *Worker) StopTask(ctx context.Context, t task.Task) (*task.DockerResult,
 
 	t.FinishTime = time.Now().UTC()
 	t.State = task.Completed
-	w.Db[t.ID] = &t
+	err = w.Db.Put(t.ID.String(), &t)
+	if err != nil {
+		return nil, err
+	}
 
 	return result, nil
 }
@@ -140,9 +161,9 @@ func (w *Worker) AddTask(t task.Task) {
 }
 
 func (w *Worker) GetTasks() []*task.Task {
-	tasks := []*task.Task{}
-	for _, t := range w.Db {
-		tasks = append(tasks, t)
+	tasks, err := w.Db.List()
+	if err != nil {
+		return []*task.Task{}
 	}
 	return tasks
 }
@@ -152,7 +173,10 @@ func (w *Worker) UpdateTasks(ctx context.Context) error {
 		select {
 		case <-time.NewTicker(15 * time.Second).C:
 			log.Println("[worker] updating tasks")
-			w.updateTasks(ctx)
+			err := w.updateTasks(ctx)
+			if err != nil {
+				log.Printf("[worker] failed to update tasks: %#v\n", err)
+			}
 
 		case <-ctx.Done():
 			return nil
@@ -160,26 +184,37 @@ func (w *Worker) UpdateTasks(ctx context.Context) error {
 	}
 }
 
-func (w *Worker) updateTasks(ctx context.Context) {
-	for id, t := range w.Db {
+func (w *Worker) updateTasks(ctx context.Context) error {
+	tasks, err := w.Db.List()
+	if err != nil {
+		return err
+	}
+
+	for _, t := range tasks {
 		if t.State != task.Running {
 			continue
 		}
 
+		key := t.ID.String()
 		resp, err := w.InspectTask(ctx, *t)
 		if err != nil {
 			log.Printf("[worker] failed to inspect task: %#v\n", err)
-			w.Db[id].State = task.Failed
+			t.State = task.Failed
+			w.Db.Put(key, t)
 			continue
 		}
 
 		if resp.State.Status == "exited" {
-			w.Db[id].State = task.Failed
+			t.State = task.Failed
+			w.Db.Put(key, t)
 			continue
 		}
 
-		w.Db[id].HostPorts = resp.NetworkSettings.Ports
+		t.HostPorts = resp.NetworkSettings.Ports
+		w.Db.Put(key, t)
 	}
+
+	return nil
 }
 
 func (w *Worker) InspectTask(ctx context.Context, t task.Task) (types.ContainerJSON, error) {

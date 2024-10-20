@@ -65,8 +65,8 @@ func (a *Api) StopTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskToStop, ok := a.Worker.Db[tID]
-	if !ok {
+	taskToStop, err := a.Worker.Db.Get(tID.String())
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		e := ErrResponse{
 			HTTPStatusCode: http.StatusNotFound,

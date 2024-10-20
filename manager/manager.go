@@ -13,6 +13,7 @@ import (
 	"github.com/dev6699/cube/node"
 	"github.com/dev6699/cube/queue"
 	"github.com/dev6699/cube/scheduler"
+	"github.com/dev6699/cube/store"
 	"github.com/dev6699/cube/task"
 	"github.com/dev6699/cube/worker"
 	"github.com/docker/go-connections/nat"
@@ -21,8 +22,8 @@ import (
 
 type Manager struct {
 	Pending       queue.Queue[task.TaskEvent]
-	TaskDb        map[uuid.UUID]*task.Task
-	EventDb       map[uuid.UUID]*task.TaskEvent
+	TaskDb        store.Store[*task.Task]
+	EventDb       store.Store[*task.TaskEvent]
 	Workers       []string
 	WorkerTaskMap map[string][]uuid.UUID
 	TaskWorkerMap map[uuid.UUID]string
@@ -31,7 +32,7 @@ type Manager struct {
 	Scheduler     scheduler.Scheduler
 }
 
-func New(workers []string, schedulerType string) *Manager {
+func New(workers []string, schedulerType string, dbType string) *Manager {
 	var nodes []*node.Node
 	workerTaskMap := make(map[string][]uuid.UUID)
 	for _, worker := range workers {
@@ -54,11 +55,19 @@ func New(workers []string, schedulerType string) *Manager {
 		s = &scheduler.RoundRobin{Name: "roundrobin"}
 	}
 
+	var ts store.Store[*task.Task]
+	var es store.Store[*task.TaskEvent]
+	switch dbType {
+	case "memory":
+		ts = store.NewInMemoryStore[*task.Task]()
+		es = store.NewInMemoryStore[*task.TaskEvent]()
+	}
+
 	return &Manager{
 		Pending:       queue.Queue[task.TaskEvent]{},
 		Workers:       workers,
-		TaskDb:        make(map[uuid.UUID]*task.Task),
-		EventDb:       make(map[uuid.UUID]*task.TaskEvent),
+		TaskDb:        ts,
+		EventDb:       es,
 		TaskWorkerMap: make(map[uuid.UUID]string),
 		WorkerTaskMap: workerTaskMap,
 		LastWorker:    0,
@@ -72,10 +81,11 @@ func (m *Manager) AddTask(te task.TaskEvent) {
 }
 
 func (m *Manager) GetTasks() []*task.Task {
-	tasks := []*task.Task{}
-	for _, t := range m.TaskDb {
-		tasks = append(tasks, t)
+	tasks, err := m.TaskDb.List()
+	if err != nil {
+		return []*task.Task{}
 	}
+
 	return tasks
 }
 
@@ -100,12 +110,18 @@ func (m *Manager) SendWork() error {
 		return nil
 	}
 
-	m.EventDb[te.ID] = &te
-	t := te.Task
+	err := m.EventDb.Put(te.ID.String(), &te)
+	if err != nil {
+		return err
+	}
 
+	t := te.Task
 	taskWorker, ok := m.TaskWorkerMap[t.ID]
 	if ok {
-		persistedTask := m.TaskDb[t.ID]
+		persistedTask, err := m.TaskDb.Get(t.ID.String())
+		if err != nil {
+			return err
+		}
 		if te.State == task.Completed &&
 			task.ValidStateTransiton(persistedTask.State, te.State) {
 			return m.stopTask(taskWorker, t.ID.String())
@@ -125,7 +141,7 @@ func (m *Manager) SendWork() error {
 	m.TaskWorkerMap[t.ID] = w.Name
 
 	t.State = task.Scheduled
-	m.TaskDb[t.ID] = &t
+	m.TaskDb.Put(t.ID.String(), &t)
 
 	data, err := json.Marshal(te)
 	if err != nil {
@@ -229,16 +245,19 @@ func (m *Manager) updateTasks() error {
 		}
 
 		for _, t := range tasks {
-			_, ok := m.TaskDb[t.ID]
-			if !ok {
+			key := t.ID.String()
+			taskPersisted, err := m.TaskDb.Get(key)
+			if err != nil {
 				continue
 			}
 
-			m.TaskDb[t.ID].State = t.State
-			m.TaskDb[t.ID].StartTime = t.StartTime
-			m.TaskDb[t.ID].FinishTime = t.FinishTime
-			m.TaskDb[t.ID].ContainerID = t.ContainerID
-			m.TaskDb[t.ID].HostPorts = t.HostPorts
+			taskPersisted.State = t.State
+			taskPersisted.StartTime = t.StartTime
+			taskPersisted.FinishTime = t.FinishTime
+			taskPersisted.ContainerID = t.ContainerID
+			taskPersisted.HostPorts = t.HostPorts
+
+			m.TaskDb.Put(key, taskPersisted)
 		}
 	}
 
@@ -287,7 +306,7 @@ func (m *Manager) restartTask(t *task.Task) error {
 	w := m.TaskWorkerMap[t.ID]
 	t.State = task.Scheduled
 	t.RestartCount++
-	m.TaskDb[t.ID] = t
+	m.TaskDb.Put(t.ID.String(), t)
 
 	te := task.TaskEvent{
 		ID:        uuid.New(),
