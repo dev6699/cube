@@ -32,7 +32,7 @@ type Manager struct {
 	Scheduler     scheduler.Scheduler
 }
 
-func New(workers []string, schedulerType string, dbType string) *Manager {
+func New(workers []string, schedulerType string, dbType string) (*Manager, error) {
 	var nodes []*node.Node
 	workerTaskMap := make(map[string][]uuid.UUID)
 	for _, worker := range workers {
@@ -61,6 +61,17 @@ func New(workers []string, schedulerType string, dbType string) *Manager {
 	case "memory":
 		ts = store.NewInMemoryStore[*task.Task]()
 		es = store.NewInMemoryStore[*task.TaskEvent]()
+
+	case "bolt":
+		var err error
+		ts, err = store.NewBoltStore[*task.Task]("tasks.db", 0600, "tasks")
+		if err != nil {
+			return nil, err
+		}
+		es, err = store.NewBoltStore[*task.TaskEvent]("events.db", 0600, "events")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &Manager{
@@ -73,7 +84,7 @@ func New(workers []string, schedulerType string, dbType string) *Manager {
 		LastWorker:    0,
 		WorkerNodes:   nodes,
 		Scheduler:     s,
-	}
+	}, nil
 }
 
 func (m *Manager) AddTask(te task.TaskEvent) {

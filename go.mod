@@ -3,6 +3,7 @@ module github.com/dev6699/cube
 go 1.23.2
 
 require (
+	github.com/boltdb/bolt v1.3.1
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/docker/go-connections v0.5.0

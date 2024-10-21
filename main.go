@@ -22,13 +22,16 @@ func run() error {
 	wport, _ := strconv.Atoi(os.Getenv("CUBE_WORKER_PORT"))
 	mhost := os.Getenv("CUBE_MANAGER_HOST")
 	mport, _ := strconv.Atoi(os.Getenv("CUBE_MANAGER_PORT"))
-	dbType := "memory"
+	dbType := "bolt" // "memory"
 
 	ctx := context.Background()
 	workers := []string{}
 	workerCount := 3
 	for i := 0; i < workerCount; i++ {
-		w := worker.New(fmt.Sprintf("worker-%d", i+1), dbType)
+		w, err := worker.New(fmt.Sprintf("worker-%d", i+1), dbType)
+		if err != nil {
+			return err
+		}
 		port := wport + i
 		workers = append(workers, fmt.Sprintf("%s:%d", whost, port))
 		wapi := worker.NewApi(whost, port, w)
@@ -38,7 +41,10 @@ func run() error {
 		go wapi.Start()
 	}
 
-	m := manager.New(workers, "roundrobin", dbType)
+	m, err := manager.New(workers, "roundrobin", dbType)
+	if err != nil {
+		return err
+	}
 	go m.ProcessTasks(ctx)
 	go m.UpdateTasks(ctx)
 	go m.DoHealthChecks(ctx)
