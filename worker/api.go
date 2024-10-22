@@ -2,7 +2,6 @@ package worker
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -26,7 +25,6 @@ func NewApi(address string, port int, worker *Worker) *Api {
 func (a *Api) Start() error {
 	a.initRouter()
 	addr := fmt.Sprintf("%s:%d", a.Address, a.Port)
-	log.Println("[worker] listening on", addr)
 	return http.ListenAndServe(addr, a.Router)
 }
 

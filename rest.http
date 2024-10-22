@@ -3,6 +3,9 @@
 @worker_2_url=http://127.0.0.1:5557
 @worker_3_url=http://127.0.0.1:5558
 
+GET {{manager_url}}/nodes
+
+###
 GET {{manager_url}}/tasks
 
 ###

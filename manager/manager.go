@@ -13,6 +13,7 @@ import (
 	"github.com/dev6699/cube/node"
 	"github.com/dev6699/cube/queue"
 	"github.com/dev6699/cube/scheduler"
+	"github.com/dev6699/cube/stats"
 	"github.com/dev6699/cube/store"
 	"github.com/dev6699/cube/task"
 	"github.com/dev6699/cube/worker"
@@ -270,6 +271,47 @@ func (m *Manager) updateTasks() error {
 
 			m.TaskDb.Put(key, taskPersisted)
 		}
+	}
+
+	return nil
+}
+
+func (m *Manager) UpdateNodeStats(ctx context.Context) error {
+	for {
+		select {
+		case <-time.NewTicker(5 * time.Second).C:
+			log.Println("[manager] updating node stats")
+			err := m.checkNodeStats()
+			if err != nil {
+				log.Printf("[manager] failed to update node stats: %v\n", err)
+			}
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (m *Manager) checkNodeStats() error {
+	for i, n := range m.WorkerNodes {
+		url := fmt.Sprintf("%s/stats", n.Api)
+		resp, err := http.Get(url)
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("invalid status code: %v", resp.StatusCode)
+		}
+
+		d := json.NewDecoder(resp.Body)
+		var newStat stats.Stats
+		err = d.Decode(&newStat)
+		if err != nil {
+			return err
+		}
+
+		m.WorkerNodes[i].Stats = newStat
 	}
 
 	return nil

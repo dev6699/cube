@@ -21,7 +21,6 @@ type Node struct {
 	DiskAllocated   int64
 	Stats           stats.Stats
 	Role            string
-	TaskCount       int
 }
 
 func New(name string, api string, role string) *Node {

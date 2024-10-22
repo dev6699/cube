@@ -139,6 +139,7 @@ func (w *Worker) StartTask(ctx context.Context, t task.Task) (*task.DockerResult
 		return nil, err
 	}
 
+	w.TaskCount++
 	return result, nil
 }
 
@@ -161,6 +162,7 @@ func (w *Worker) StopTask(ctx context.Context, t task.Task) (*task.DockerResult,
 		return nil, err
 	}
 
+	w.TaskCount--
 	return result, nil
 }
 

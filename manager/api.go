@@ -2,7 +2,6 @@ package manager
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -26,7 +25,6 @@ func NewApi(address string, port int, manager *Manager) *Api {
 func (a *Api) Start() error {
 	a.initRouter()
 	addr := fmt.Sprintf("%s:%d", a.Address, a.Port)
-	log.Println("[manager] listening on", addr)
 	return http.ListenAndServe(addr, a.Router)
 }
 
@@ -37,4 +35,5 @@ func (a *Api) initRouter() {
 		r.Get("/", a.GetTasksHandler)
 		r.Delete("/{taskID}", a.StopTaskHandler)
 	})
+	a.Router.Get("/nodes", a.GetNodesHandler)
 }
