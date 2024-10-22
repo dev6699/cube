@@ -9,13 +9,10 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "cube",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Cube is a CLI tool for managing tasks in a distributed system, with workers running tasks in Docker containers.",
+	Long: `Cube is a CLI tool for orchestrating tasks across a distributed system.
+It assigns tasks to worker nodes, which execute them in Docker containers.
+With Cube, you can efficiently manage, monitor, and scale tasks across multiple nodes.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
