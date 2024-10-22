@@ -1,23 +1,19 @@
 ```mermaid
 graph TD
-    Manager[Manager] -->|Assigns Task| Node1[Worker Node 1]
-    Manager -->|Assigns Task| Node2[Worker Node 2]
-    Manager -->|Assigns Task| Node3[Worker Node 3]
-    
-    Node1 -->|Runs Task in| Docker1[Docker Container Runtime]
-    Node2 -->|Runs Task in| Docker2[Docker Container Runtime]
-    Node3 -->|Runs Task in| Docker3[Docker Container Runtime]
+    Manager[Manager] -->|Assigns Task| Worker1[Worker Node 1]
+    Manager -->|Assigns Task| Worker2[Worker Node 2]
+    Manager -->|Assigns Task| Worker3[Worker Node 3]
 
-    subgraph Cluster
-        Node1
-        Node2
-        Node3
+    subgraph Worker1[Worker Node 1]
+        Docker1[Docker Container Runtime]
     end
 
-    subgraph Docker
-        Docker1
-        Docker2
-        Docker3
+    subgraph Worker2[Worker Node 2]
+        Docker2[Docker Container Runtime]
+    end
+
+    subgraph Worker3[Worker Node 3]
+        Docker3[Docker Container Runtime]
     end
 ```
 
